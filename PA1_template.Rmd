@@ -8,18 +8,129 @@ output:
 
 ## Loading and preprocessing the data
 
+The first seciton of this document will go over loading and processing the data. First, we will load the libraries we will need however:
 
+```{r libraries}
+library(vroom)
+library(tidyverse)
+library(ggplot2)
+```
+
+Now, we will load in the data:
+
+```{r loading}
+data <- vroom("activity.zip")
+str(data)
+```
 
 ## What is mean total number of steps taken per day?
 
+This section will answer the question "What is the mean total number of steps taken per day?" It will ignore missing values as well. 
 
+In addition to the mean, it will also provide a histogram, the median, and the total number of steps taken per day.
+
+```{r q1}
+aggData <- data %>%
+                group_by(date) %>%
+                summarise(step.sum = sum(steps, na.rm = TRUE))
+str(aggData)
+
+ggplot(aggData, aes(x = step.sum)) + geom_histogram(bins = 60)
+
+aggMean <- mean(aggData$step.sum)
+aggMedian <- median(aggData$step.sum)
+
+c("Mean" = aggMean,"Median" = aggMedian)
+```
 
 ## What is the average daily activity pattern?
 
+This section will answer the question "What is the average daily activity pattern?".
 
+It will make a time series plot of the 5-minute intervals and the average number of steps taken, averaged across all days.
+
+```{r q2}
+aggData2 <- data %>%
+                group_by(interval) %>% 
+                summarise(step.mean = mean(steps, na.rm = TRUE)) %>%
+                arrange(desc(step.mean))
+str(aggData2)
+
+# Chart
+
+ggplot(aggData2, aes(x = interval, y = step.mean)) + geom_col()
+
+# Max interval
+
+aggData2[1,]
+```
 
 ## Imputing missing values
 
+This section will deal with imputing the missing values. It will do the following:
+
+Calculate and report the total number of missing values in the dataset, fill in all of the missing values in the dataset using the median value, create a new dataset that is equal to the original dataset but with the missing data filled in, and make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+* Do these values differ from the estimates from the first part of the assignment? 
+* What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+ 
+Here is the code:
+
+```{r q3}
+# missing values
+summary(data)
+```
+
+2304 NAs.
+
+To replace the NAs, we will use the agregated median per day, divided by how many intervals there are: `aggMedian/nrow(aggData2)`.
+
+```{r q32}
+imputed <- replace_na(data$steps, (aggMedian/nrow(aggData2)))
+data[,1] <- imputed 
+str(data)
+
+# Now, let's reuse the code from earlier to see how different it is: 
+
+aggData <- data %>%
+                group_by(date) %>%
+                summarise(step.sum = sum(steps, na.rm = TRUE))
+str(aggData)
+
+ggplot(aggData, aes(x = step.sum)) + geom_histogram(bins = 60)
+
+aggMean2 <- mean(aggData$step.sum)
+aggMedian2 <- median(aggData$step.sum)
+
+c("Mean" = aggMean,"Median" = aggMedian)
+c("Mean" = aggMean2,"Median" = aggMedian2)
+```
+
+For this, the histogram slightly shifted, and the mean increased. This is likely due to the days that have values now, instead of 0s from NA values.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+This seciton will answer the question "Are there differences in activity patterns between weekdays and weekends?"
+
+It will create a new factor variable that determines if its on the weekend or not, and then a plot will be made.
+
+```{r q4}
+str(data)
+data <- data %>% mutate(weekday = weekdays(data$date)) 
+data <- data %>% mutate(weekOrWeekend = ifelse(weekday %in% c("Saturday","Sunday"), "Weekend", "Weekday"))
+str(data)
+table(data$weekOrWeekend)
+aggData3 <- data %>%
+                group_by(interval, wow = as.factor(weekOrWeekend)) %>% 
+                summarise(step.mean = mean(steps, na.rm = TRUE))
+str(aggData3)
+
+# Chart
+
+ggplot(aggData3, aes(x = interval, y = step.mean, fill = wow)) + 
+    geom_col(position = "dodge")
+```
+
+KEEP IN MIND THAT THE DIRECTIONS SAY WE CAN USE ANY PLOTTING SYSTEM, so I chose to use ggplot2 instead of the ugly base-chart they provided (I just don't want to get marked down).
